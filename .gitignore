@@ -1,0 +1,8 @@
+#solution files
+*.sdf
+*.sln
+*.suo
+*.opensdf
+.bin
+**/Debug
+ipch
