@@ -27,11 +27,11 @@ struct s_details
 	char f_name[15];
 	char m_name[15];
 	char addr[40];
+	char mainfile[20];
+	char roll[10];
 	uchar marks_y1[6];
 	uchar marks_y2[6];
 	uchar n_files;
-	char mainfile[20];
-	char roll[10];
 };
 struct pair
 {
@@ -48,17 +48,27 @@ struct meta
 //______________________________________
 //FUNCTION DEFS
 
+void createFolder(char*);
 uchar sample(int);
 uint getNextFreeLoc(int);
 void addStudentDetailsAtOffset(int, s_details*); 
 void updateMarks(char*, int*, int);
 int getStudentOffset(char*); 
-void getStudentDetails(char*, s_details*);
+void getStudentDetails(char*, s_details*); 
+void addNewStudent(s_details* );
 void init();
 
 //END OF FUNCTION DEFS
 //______________________________________
 //ALLOCATION
+
+void createFolder(char* name)
+{
+	wchar_t wtext[20];
+	mbstowcs(wtext, name, strlen(name) + 1);//Plus null
+	LPWSTR ptr = wtext;
+	CreateDirectory(ptr, NULL);
+}
 uchar sample(int pos)
 {
 	switch (pos)
@@ -95,7 +105,6 @@ uchar sample(int pos)
 
 uint getNextFreeLoc(int n_blocks)
 {
-	fseek(fp, 2, SEEK_SET);
 	unsigned char b;
 	int bytepos = 0;
 	int bitpos = 0;
@@ -134,12 +143,34 @@ uint getNextFreeLoc(int n_blocks)
 		b = b | sample(bitpos + 1);
 	}
 	fwrite(&b, 1, 1, fp);
-	return bytepos * 8 * 128 + bitpos * 128 + 2 + 1000+sizeof(meta);
+	return bytepos * 8 * 128 + bitpos * 128 + 1000+sizeof(meta);
 }
 
 //END OF ALLOCATION
 //______________________________________
+void init(){
 
+	fseek(fp, 1024, 0);
+	meta* m = (meta*)malloc(sizeof(meta));
+	fread(m, sizeof(meta), 1, fp);
+	m->n_st = 0;
+	/*int* m1 = (int*)malloc(6 * 4);
+	for (int i = 0; i < 6; i++)
+		m1[i] = 21;
+	s_details* sd = (s_details*)malloc(sizeof(s_details));
+	s_details* sd1 = (s_details*)malloc(sizeof(s_details));
+	strcpy(sd->f_name, "fnameyo");
+	strcpy(sd->m_name, "mnamemama");
+	strcpy(sd->s_name, "snamelol");
+	strcpy(sd->addr, "addrkirr");
+	strcpy(sd->mainfile, "mainfilhahae");
+	strcpy(sd->roll, "rollerer");
+	memcpy(sd->marks_y1, m1, 6 * 4);
+	memcpy(sd->marks_y2, m1, 6 * 4);
+	addNewStudent(sd);
+	getStudentDetails(sd->roll,sd1);
+	printf("%s", sd1->f_name);*/
+}
 void addStudentDetailsAtOffset(int offset, s_details* sd)
 {
 	fseek(fp, offset, SEEK_SET);
@@ -155,8 +186,9 @@ void addNewStudent(s_details* sd)
 	strcpy(m->s_blocks[m->n_st].roll, sd->roll);
 	m->n_st++;
 	fwrite(m, sizeof(meta), 1, fp);
-	free(m);
+	createFolder(sd->roll);
 	addStudentDetailsAtOffset(off,sd);
+	free(m);
 }
 void getStudentDetails(char* roll,s_details* sd)
 {
@@ -195,12 +227,20 @@ void updateMarks(char* roll, int* newmarks, int year)
 		arr[i] = newmarks[i];
 	addStudentDetailsAtOffset(getStudentOffset(roll), temp);
 }
-void init()
+
+void getMarks(char* roll, int* marks,int year)
 {
-	int i = 9;
-	fread(&i, 4, 1, fp);
-	printf("%d num\n",i);
+	s_details* sd = (s_details*)malloc(sizeof(s_details));
+	getStudentDetails(roll, sd);
+	uchar* temp;
+	if (year == 1)
+		temp = sd->marks_y1;
+	else
+		temp = sd->marks_y2;
+	for (int i = 0; i < 6; i++)
+		marks[i] = temp[i];
 }
+
 //______________________________________
 
 //CORE SERVER
