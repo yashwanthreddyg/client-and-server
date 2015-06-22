@@ -15,7 +15,7 @@ typedef unsigned char uchar;
 //GLOBALS
 
 extern FILE* fp;
-int meta_off = 1024;
+int meta_off = 0;
 //END OF GLOBALS
 //__________________________________
 
@@ -29,8 +29,8 @@ struct s_details
 	char addr[40];
 	char mainfile[20];
 	char roll[10];
-	uchar marks_y1[6];
-	uchar marks_y2[6];
+	char marks_y1[6];
+	char marks_y2[6];
 	uchar n_files;
 };
 struct pair
@@ -49,7 +49,6 @@ struct meta
 //FUNCTION DEFS
 
 void createFolder(char*);
-uchar sample(int);
 uint getNextFreeLoc(int);
 void addStudentDetailsAtOffset(int, s_details*); 
 void updateMarks(char*, int*, int);
@@ -57,10 +56,202 @@ int getStudentOffset(char*);
 void getStudentDetails(char*, s_details*); 
 void addNewStudent(s_details* );
 void init();
+void parseInput(char*, char*);
+char** getWords(char*); 
+int len1(char**);
+void parsePost(char**, char*);
+void parseGet(char**, char*);
+void parseUpdate(char**, char*); 
+void getStringFromDetails(char*, s_details*);
+void getStringFromInt(char* , int );
 
 //END OF FUNCTION DEFS
 //______________________________________
 //ALLOCATION
+void getStringFromInt(char* str, int num)
+{
+	sprintf(str, "%d", num);
+}
+
+void parsePost(char** input, char* output)
+{
+	if (!strcmp(input[1], "details"))
+	{
+		s_details* sd = (s_details*)malloc(sizeof(s_details));
+		strcpy(sd->roll, input[2]);
+		strcpy(sd->s_name, input[3]);
+		strcpy(sd->f_name, input[4]);
+		strcpy(sd->m_name, input[5]);
+		strcpy(sd->addr, input[6]);
+		addNewStudent(sd);
+		strcpy(output, "new student details added\n");
+	}
+	else if (!strcmp(input[1], "file"))
+	{
+		char roll[10];
+		char filepath[30] ;
+		filepath[0] = '\0';
+		strcat(filepath, input[2]);
+		strcat(filepath, "/");
+		strcat(filepath, input[3]);
+		FILE* rec  = fopen(filepath, "w");
+		int i = 0;
+		while (1)
+		{
+			if (input[4][i] == '('&&input[4][i + 1] == ')')
+			{
+				break;
+			}
+			fputc(input[4][i], rec);
+			i++;
+		}
+		fclose(rec);
+	}
+}
+
+void getStringFromDetails(char* temp, s_details* sd)
+{
+	char n[4];
+	strcat(temp,":");
+	strcat(temp, sd->roll);
+	strcat(temp, ":");
+	strcat(temp, sd->s_name);
+	strcat(temp, ":");
+	strcat(temp, sd->f_name);
+	strcat(temp, ":");
+	strcat(temp, sd->m_name);
+	strcat(temp, ":");
+	strcat(temp, sd->addr);
+	for (int i = 0; i < 6; i++)
+	{
+		strcat(temp, ":");
+		int k = (int)sd->marks_y1[i];
+		getStringFromInt(n, (int)sd->marks_y1[i]);
+		strcat(temp, n);
+	}
+	for (int i = 0; i < 6; i++)
+	{
+		strcat(temp, ":");
+		int k = (int)sd->marks_y2[i];
+		getStringFromInt(n, sd->marks_y2[i]);
+		strcat(temp, n);
+	}
+}
+void parseGet(char** input, char* output)
+{
+	if (!strcmp(input[1], "details"))
+	{
+		char temp[100];
+		temp[0] = '\0';
+		s_details* sd = (s_details*)malloc(sizeof(s_details));
+		getStudentDetails(input[2],sd);
+		strcpy(output, "post:details");
+		getStringFromDetails(temp, sd);
+		strcat(output, temp);
+	}
+	if (!strcmp(input[1], "file"))
+	{
+		char roll[10];
+		char filepath[30];
+		filepath[0] = '\0';
+		strcat(filepath, input[2]);
+		strcat(filepath, "/");
+		strcat(filepath, input[3]);
+		strcat(output, "post:file:");
+		strcat(output, input[3]);
+		strcat(output, ":");
+		//______
+		FILE* send = fopen(filepath, "r");
+		char ch;
+		char temp[2];
+		temp[1] = '\0';
+		int i = strlen(output);
+		while (1)
+		{
+			ch = fgetc(send);
+			output[i] = ch;
+			if (ch == EOF)
+			{
+				output[i] = '(';
+				output[i + 1] = ')';
+				output[i + 2] = '\0';
+				break;
+			}
+			i++;
+		}
+
+		fclose(send);
+	}
+
+}
+
+void parseUpdate(char** input, char* output)
+{
+	if (!strcmp(input[1], "marks"))
+	{
+		int year = atoi(input[3]);
+		s_details* sd = (s_details*)malloc(sizeof(s_details));
+		getStudentDetails(input[2],sd);
+		char* arr = (year == 1) ? sd->marks_y1 : sd->marks_y2;
+		for (int i = 0; i < 6; i++)
+		{
+			arr[i] =(int) atoi(input[4 + i]);
+		}
+		addStudentDetailsAtOffset(getStudentOffset(sd->roll), sd);
+		strcat(output, "student marks have been updated\n");
+	}
+
+}
+int len1(char** arr)
+{
+	int i = 0;
+	while (arr[i][0] != '$')
+		i++;
+	return i;
+}
+
+char** getWords(char* str)
+{
+	fflush(stdout);
+	int n_tok = 0, i = 0;
+	char** words;
+	char* w;
+	for (i = 0; i < strlen(str); i++)
+	{
+		if (str[i] == ':')
+			n_tok++;
+	}
+	n_tok++;
+	words = (char**)malloc((n_tok + 1)*sizeof(char*));
+	w = strtok(str, ":");
+	i = 0;
+	words[i++] = w;
+	while (i < n_tok)
+	{
+		w = strtok(NULL, ":");
+		words[i++] = w;
+	}
+
+	words[i] = (char*)malloc(sizeof(char));
+	words[i][0] = '$';
+	return words;
+}
+void parseInput(char* input, char* output)
+{
+	char** tokens = getWords(input);
+	if (!strcmp(tokens[0], "post"))
+	{
+		parsePost(tokens, output);
+	}
+	else if (!strcmp(tokens[0], "get"))
+	{
+		parseGet(tokens, output);
+	}
+	else if (!strcmp(tokens[0], "update"))
+	{
+		parseUpdate(tokens, output);
+	}
+}
 
 void createFolder(char* name)
 {
@@ -69,46 +260,15 @@ void createFolder(char* name)
 	LPWSTR ptr = wtext;
 	CreateDirectory(ptr, NULL);
 }
-uchar sample(int pos)
-{
-	switch (pos)
-	{
-	case 0:
-		return (uchar)0x80;
-		break;
-	case 1:
-		return (uchar)0x40;
-		break;
-	case 2:
-		return (uchar)0x20;
-		break;
-	case 3:
-		return (uchar)0x10;
-		break;
-	case 4:
-		return (uchar)0x08;
-		break;
-	case 5:
-		return (uchar)0x04;
-		break;
-	case 6:
-		return (uchar)0x02;
-		break;
-	case 7:
-		return (uchar)0x01;
-		break;
-	default:
-		return (uchar)-1;
-		break;
-	}
-}
 
 uint getNextFreeLoc(int n_blocks)
 {
+	/*
 	unsigned char b;
 	int bytepos = 0;
 	int bitpos = 0;
 	uchar req = (n_blocks == 1) ? 0x80 : 0x40;
+	rewind(fp);
 	fread(&b, 1, 1, fp);
 	while (1)
 	{
@@ -136,40 +296,25 @@ uint getNextFreeLoc(int n_blocks)
 		if (flag)
 			break;
 	}
-	fseek(fp, bytepos + 2, SEEK_SET);
+	fseek(fp, bytepos , SEEK_SET);
 	b = b | sample(bitpos);
 	if (n_blocks == 2)
 	{
 		b = b | sample(bitpos + 1);
 	}
 	fwrite(&b, 1, 1, fp);
-	return bytepos * 8 * 128 + bitpos * 128 + 1000+sizeof(meta);
+	return bytepos * 8 * 128 + bitpos * 128 + 1000+sizeof(meta);*/
+	meta* m = (meta*)malloc(sizeof(meta));
+	rewind(fp);
+	fread(m, sizeof(meta), 1, fp);
+	int t = m->n_st;
+	free(m);
+	return t*sizeof(s_details)+sizeof(meta);
 }
 
 //END OF ALLOCATION
 //______________________________________
 void init(){
-
-	fseek(fp, 1024, 0);
-	meta* m = (meta*)malloc(sizeof(meta));
-	fread(m, sizeof(meta), 1, fp);
-	m->n_st = 0;
-	/*int* m1 = (int*)malloc(6 * 4);
-	for (int i = 0; i < 6; i++)
-		m1[i] = 21;
-	s_details* sd = (s_details*)malloc(sizeof(s_details));
-	s_details* sd1 = (s_details*)malloc(sizeof(s_details));
-	strcpy(sd->f_name, "fnameyo");
-	strcpy(sd->m_name, "mnamemama");
-	strcpy(sd->s_name, "snamelol");
-	strcpy(sd->addr, "addrkirr");
-	strcpy(sd->mainfile, "mainfilhahae");
-	strcpy(sd->roll, "rollerer");
-	memcpy(sd->marks_y1, m1, 6 * 4);
-	memcpy(sd->marks_y2, m1, 6 * 4);
-	addNewStudent(sd);
-	getStudentDetails(sd->roll,sd1);
-	printf("%s", sd1->f_name);*/
 }
 void addStudentDetailsAtOffset(int offset, s_details* sd)
 {
@@ -185,6 +330,7 @@ void addNewStudent(s_details* sd)
 	m->s_blocks[m->n_st].det_off = off;
 	strcpy(m->s_blocks[m->n_st].roll, sd->roll);
 	m->n_st++;
+	rewind(fp);
 	fwrite(m, sizeof(meta), 1, fp);
 	createFolder(sd->roll);
 	addStudentDetailsAtOffset(off,sd);
@@ -193,7 +339,8 @@ void addNewStudent(s_details* sd)
 void getStudentDetails(char* roll,s_details* sd)
 {
 	meta* m = (meta*)malloc(sizeof(meta));
-	fseek(fp, meta_off, SEEK_SET);
+	rewind(fp);
+	fread(m, sizeof(meta), 1, fp);
 	int i;
 	for (i = 0; i < m->n_st; i++)
 	{
@@ -206,7 +353,8 @@ void getStudentDetails(char* roll,s_details* sd)
 int getStudentOffset(char* roll)
 {
 	meta* m = (meta*)malloc(sizeof(meta));
-	fseek(fp, meta_off, SEEK_SET);
+	rewind(fp);
+	fread(m, sizeof(meta), 1, fp);
 	for (int i = 0; i < m->n_st; i++)
 	{
 		if (!strcmp(m->s_blocks[i].roll, roll))
@@ -218,7 +366,7 @@ void updateMarks(char* roll, int* newmarks, int year)
 {
 	s_details* temp = (s_details*)malloc(sizeof(s_details));
 	getStudentDetails(roll,temp);
-	uchar* arr;
+	char* arr;
 	if (year == 1)
 		arr = temp->marks_y1;
 	else
@@ -232,7 +380,7 @@ void getMarks(char* roll, int* marks,int year)
 {
 	s_details* sd = (s_details*)malloc(sizeof(s_details));
 	getStudentDetails(roll, sd);
-	uchar* temp;
+	char* temp;
 	if (year == 1)
 		temp = sd->marks_y1;
 	else
@@ -333,11 +481,15 @@ FINISH:
 
 void process_input(char *recvbuf, int recv_buf_cnt, int* csock) 
 {
-
 	char replybuf[1024]={'\0'};
+	/*
 	printf("%s",recvbuf);
 	replyto_client(recvbuf, csock);
 	replybuf[0] = '\0';
+	*/
+	parseInput(recvbuf,replybuf);
+	replyto_client(replybuf, csock);
+
 }
 
 void replyto_client(char *buf, int *csock) {
@@ -353,7 +505,7 @@ void replyto_client(char *buf, int *csock) {
 DWORD WINAPI SocketHandler(void* lp){
     int *csock = (int*)lp;
 
-	char recvbuf[1024];
+	char recvbuf[1024] = {'\0'};
 	int recvbuf_len = 1024;
 	int recv_byte_cnt;
 
@@ -364,7 +516,7 @@ DWORD WINAPI SocketHandler(void* lp){
 		return 0;
 	}
 
-	//printf("Received bytes %d\nReceived string \"%s\"\n", recv_byte_cnt, recvbuf);
+	printf("Received bytes %d\nReceived string \"%s\"\n", recv_byte_cnt, recvbuf);
 	process_input(recvbuf, recv_byte_cnt, csock);
 
     return 0;

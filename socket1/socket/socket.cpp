@@ -41,7 +41,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	fp = fopen("database.bin", "rb+");
 	init();
 
-	//socket_server();
+	socket_server();
 	scanf("%d");
 }
 
